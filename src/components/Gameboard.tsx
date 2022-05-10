@@ -1,16 +1,85 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {Button} from './Button';
+import {COLORS, SOUNDS} from '../constants';
 
-const GameBoard = () => {
-    const classes = 'absolute w-3/6 h-3/6'
+interface GameBoardProps {
+    setBestScore: React.Dispatch<React.SetStateAction<number>>
+}
+
+const timeout = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const GameBoard = ({setBestScore}:GameBoardProps) => {
+    const [gameStarted, setGameStarted] = React.useState(false);
+    const [computerColors, setComputerColors] = React.useState<string[]>([]);
+    const [userColors, setUserColors] = React.useState<string[]>([]);
+    const [activeColor, setActiveColor] = React.useState<string | null>(null);
+    const [computerTurn, setComputerTurn] = React.useState(true);
+
+    const startHandle = () => {
+        setGameStarted(true);
+    }
+
+    const createComputerFlow = () => {
+        const randomColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+        setComputerColors(prevState => [...prevState, randomColor]);
+    }
+
+    const handleUserClick = async(e: React.MouseEvent<HTMLButtonElement>) => {
+        const { name } = e.currentTarget;
+        const copyColors = [...userColors];
+        const lastColor = copyColors.pop();
+
+        if (lastColor === name) {
+            SOUNDS[name].play();
+            if(copyColors.length){
+                setUserColors(copyColors);
+            }else {
+                setComputerTurn(true);
+                setUserColors([]);
+                setBestScore(prevState => prevState + 1);
+                await timeout(899);
+                createComputerFlow();
+            }
+        }
+        else {
+            setComputerColors([]);
+            setUserColors([]);
+            setGameStarted(false);
+        }
+    }
+
+    useEffect(() => {
+        if (gameStarted) {
+            createComputerFlow();
+        }
+    }, [gameStarted]);
+
+    useEffect(() => {
+        (async () => {
+            for(let [index, color] of computerColors.entries()) {
+                SOUNDS[color].playbackRate = 1.5;
+                await SOUNDS[color].play();
+                setActiveColor(color);
+                await timeout(400);
+                setActiveColor(null)
+                await timeout(400);
+                if(index === computerColors.length - 1) {
+                    const copyColors = [...computerColors];
+                    setComputerTurn(false);
+                    setUserColors(copyColors.reverse());
+                }
+            }
+        })()
+    }, [computerColors.length]);
+
     return (
         <>
-            <button className={`${classes} -top-1.5 -left-1.5 bg-green-500 hover:bg-green-600`} />
-            <button className={`${classes} -top-1.5 -right-1.5 bg-red-500 hover:bg-red-600`} />
-            <button className={`${classes} -bottom-1.5 -left-1.5 bg-yellow-500 hover:bg-yellow-600`} />
-            <button className={`${classes} -bottom-1.5 -right-1.5 bg-blue-500 hover:bg-blue-600`} />
-            <div className='absolute top-2/4 left-2/4 -translate-y-2/4 -translate-x-2/4 w-36 h-36 bg-white rounded-full flex justify-center items-center'>
-                <Button mode='start' onClick={() => console.log('start')}/>
+            <button disabled={!gameStarted || computerTurn } name='green' onClick={handleUserClick} className={`${activeColor === 'green' ? 'bg-green-700' : 'bg-green-500'} absolute w-3/6 h-3/6 -top-1.5 -left-1.5 hover:bg-green-600`} />
+            <button disabled={!gameStarted || computerTurn } name='red' onClick={handleUserClick} className={`${activeColor === 'red' ? 'bg-red-700' : 'bg-red-500'} absolute w-3/6 h-3/6 -top-1.5 -right-1.5 hover:bg-red-600`} />
+            <button disabled={!gameStarted || computerTurn } name='yellow' onClick={handleUserClick} className={`${activeColor === 'yellow' ? 'bg-yellow-700' : 'bg-yellow-500'} absolute w-3/6 h-3/6 -bottom-1.5 -left-1.5 hover:bg-yellow-600`} />
+            <button disabled={!gameStarted || computerTurn } name='blue' onClick={handleUserClick} className={`${activeColor === 'blue' ? 'bg-blue-700' : 'bg-blue-500'} absolute w-3/6 h-3/6 -bottom-1.5 -right-1.5 hover:bg-blue-600`} />
+            <div className='absolute top-2/4 left-2/4 -translate-y-2/4 -translate-x-2/4 w-36 h-36 bg-black rounded-full flex justify-center items-center'>
+                {!gameStarted && <Button mode={'start'} onClick={startHandle}/>}
             </div>
         </>
     );
